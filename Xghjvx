@@ -1,6 +1,6 @@
 -- ═══════════════════════════════════════════════════════
---   BLOX FRUITS - SMART NPC SCANNER v1.0
---   Auto-detects ALL NPCs from Workspace (no hardcoded names)
+--   BLOX FRUITS - XENO COMPATIBLE NPC TOOLKIT v2.0
+--   Only uses Xeno-safe functions (sUNC 40% friendly)
 -- ═══════════════════════════════════════════════════════
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
@@ -19,24 +19,22 @@ local function corner(p,r) local c=Instance.new("UICorner",p); c.CornerRadius=UD
 local function stroke(p,c,t,tr) local s=Instance.new("UIStroke",p); s.Color=c or C.accent; s.Thickness=t or 1; s.Transparency=tr or 0; return s end
 local function pad(p,a,l) local u=Instance.new("UIPadding",p); u.PaddingTop=UDim.new(0,a or 0); u.PaddingBottom=UDim.new(0,a or 0); u.PaddingLeft=UDim.new(0,l or 0); u.PaddingRight=UDim.new(0,l or 0); return u end
 
+-- ═══════════ GUI ═══════════
 local gui = Instance.new("ScreenGui")
-gui.Name = "BloxNPC"; gui.ResetOnSpawn = false; gui.IgnoreGuiInset = true
+gui.Name = "BloxNPC_Xeno"; gui.ResetOnSpawn = false; gui.IgnoreGuiInset = true
 gui.Parent = LP:WaitForChild("PlayerGui")
 
--- Toggle button
 local toggle = Instance.new("TextButton")
 toggle.Size = UDim2.new(0,50,0,50); toggle.Position = UDim2.new(0,20,0.5,-25)
 toggle.BackgroundColor3 = C.accent; toggle.Text = "🗺️"; toggle.TextSize = 24
 toggle.TextColor3 = Color3.new(1,1,1); toggle.Font = Enum.Font.GothamBold
 toggle.Parent = gui; corner(toggle,25); stroke(toggle, C.accentG, 1.5, 0.3)
 
--- Main Window
 local win = Instance.new("Frame")
 win.Size = UDim2.new(0,360,0,480); win.Position = UDim2.new(0.5,-180,0.5,-240)
 win.BackgroundColor3 = C.bg; win.Visible = false; win.Parent = gui
 corner(win,14); stroke(win,C.accent,1.5,0.3)
 
--- Header
 local hd = Instance.new("Frame")
 hd.Size = UDim2.new(1,0,0,42); hd.BackgroundColor3 = C.bg2; hd.Parent = win
 corner(hd,14)
@@ -46,7 +44,7 @@ title.Size = UDim2.new(1,-100,1,0); title.Position = UDim2.new(0,14,0,0)
 title.BackgroundTransparency = 1; title.TextColor3 = C.accentG
 title.Font = Enum.Font.GothamBold; title.TextSize = 13
 title.TextXAlignment = Enum.TextXAlignment.Left
-title.Text = "🗺️ Smart NPC Scanner"; title.Parent = hd
+title.Text = "🗺️ NPC Scanner (Xeno)"; title.Parent = hd
 
 local refreshBtn = Instance.new("TextButton")
 refreshBtn.Size = UDim2.new(0,50,0,26); refreshBtn.Position = UDim2.new(1,-86,0.5,-13)
@@ -60,7 +58,6 @@ closeBtn.BackgroundColor3 = C.bg3; closeBtn.TextColor3 = C.text2
 closeBtn.Text = "X"; closeBtn.Font = Enum.Font.GothamBold
 closeBtn.TextSize = 11; closeBtn.Parent = hd; corner(closeBtn,6)
 
--- Drag
 local drag,ds,sp = false,nil,nil
 hd.InputBegan:Connect(function(i)
     if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
@@ -68,9 +65,7 @@ hd.InputBegan:Connect(function(i)
     end
 end)
 hd.InputEnded:Connect(function(i)
-    if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
-        drag=false
-    end
+    if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then drag=false end
 end)
 UIS.InputChanged:Connect(function(i)
     if drag and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
@@ -82,15 +77,13 @@ end)
 toggle.MouseButton1Click:Connect(function() win.Visible = not win.Visible end)
 closeBtn.MouseButton1Click:Connect(function() win.Visible = false end)
 
--- Status
 local status = Instance.new("TextLabel")
 status.Size = UDim2.new(1,-20,0,18); status.Position = UDim2.new(0,10,0,46)
 status.BackgroundTransparency = 1; status.TextColor3 = C.text2
 status.Font = Enum.Font.Gotham; status.TextSize = 10
 status.TextXAlignment = Enum.TextXAlignment.Left
-status.Text = "اضغط Scan للبحث..."; status.Parent = win
+status.Text = "Press Scan..."; status.Parent = win
 
--- Buttons row
 local buttonsRow = Instance.new("Frame")
 buttonsRow.Size = UDim2.new(1,-20,0,30); buttonsRow.Position = UDim2.new(0,10,0,68)
 buttonsRow.BackgroundTransparency = 1; buttonsRow.Parent = win
@@ -110,7 +103,6 @@ local autoBtn = smallBtn("Auto: OFF", C.bg3)
 local filtBtn = smallBtn("Enemies", C.enemy)
 local refreshBtn2 = smallBtn("🔄", C.accent)
 
--- NPC list scroll
 local scroll = Instance.new("ScrollingFrame")
 scroll.Size = UDim2.new(1,-16,1,-120); scroll.Position = UDim2.new(0,8,0,104)
 scroll.BackgroundColor3 = C.bg2; scroll.BackgroundTransparency = 0.4
@@ -124,12 +116,11 @@ sList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     scroll.CanvasSize = UDim2.new(0,0,0,sList.AbsoluteContentSize.Y+10)
 end)
 
--- ========= NPC DETECTION =========
+-- ═══════════ DETECTION (Xeno-safe) ═══════════
 local function isNPC(obj)
     if not obj:IsA("Model") then return false end
     local hum = obj:FindFirstChildOfClass("Humanoid")
-    if not hum then return false end
-    if hum.Health <= 0 then return false end
+    if not hum or hum.Health <= 0 then return false end
     if Players:GetPlayerFromCharacter(obj) then return false end
     if not obj:FindFirstChild("HumanoidRootPart") then return false end
     return true
@@ -148,7 +139,6 @@ local function isEnemy(obj)
     return false
 end
 
--- ESP highlights
 local highlights = {}
 local function toggleESP(on)
     for _,hl in pairs(highlights) do hl:Destroy() end
@@ -166,23 +156,20 @@ local function toggleESP(on)
     end
 end
 
--- Refresh list
+-- ═══════════ LIST ═══════════
 local filterEnemies = false
 local function refreshList()
     for _,ch in ipairs(scroll:GetChildren()) do
         if ch:IsA("TextButton") or ch:IsA("Frame") then ch:Destroy() end
     end
-    
     local npcs = {}
     for _, obj in ipairs(workspace:GetDescendants()) do
         if isNPC(obj) and (not filterEnemies or isEnemy(obj)) then
             table.insert(npcs, obj)
         end
     end
-    
     local myChar = LP.Character
     local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    
     table.sort(npcs, function(a, b)
         if not myHRP then return false end
         local aH = a:FindFirstChild("HumanoidRootPart")
@@ -190,32 +177,26 @@ local function refreshList()
         if not aH or not bH then return false end
         return (aH.Position - myHRP.Position).Magnitude < (bH.Position - myHRP.Position).Magnitude
     end)
-    
-    status.Text = ("✅ وجد %d NPC"):format(#npcs)
-    
+    status.Text = ("Found %d NPC"):format(#npcs)
     for i, npc in ipairs(npcs) do
         local hum = npc:FindFirstChildOfClass("Humanoid")
         local hrp = npc:FindFirstChild("HumanoidRootPart")
         local dist = (hrp and myHRP) and math.floor((hrp.Position - myHRP.Position).Magnitude) or 0
-        
         local row = Instance.new("TextButton")
         row.Size = UDim2.new(1,0,0,36)
         row.BackgroundColor3 = C.bg3; row.BackgroundTransparency = 0.4
         row.Text = ""; row.LayoutOrder = i; row.Parent = scroll
         corner(row,6)
-        
         local strip = Instance.new("Frame")
         strip.Size = UDim2.new(0,3,1,-6); strip.Position = UDim2.new(0,3,0,3)
         strip.BackgroundColor3 = isEnemy(npc) and C.enemy or C.npc
         strip.Parent = row; corner(strip,2)
-        
         local nameL = Instance.new("TextLabel")
         nameL.Size = UDim2.new(1,-110,0,14); nameL.Position = UDim2.new(0,12,0,4)
         nameL.BackgroundTransparency = 1; nameL.TextColor3 = C.text
         nameL.Font = Enum.Font.GothamBold; nameL.TextSize = 10
         nameL.TextXAlignment = Enum.TextXAlignment.Left
         nameL.Text = npc.Name; nameL.Parent = row
-        
         local infoL = Instance.new("TextLabel")
         infoL.Size = UDim2.new(1,-110,0,12); infoL.Position = UDim2.new(0,12,0,18)
         infoL.BackgroundTransparency = 1; infoL.TextColor3 = C.text2
@@ -223,7 +204,6 @@ local function refreshList()
         infoL.TextXAlignment = Enum.TextXAlignment.Left
         infoL.Text = ("HP: %d | %dm"):format(math.floor(hum.Health), dist)
         infoL.Parent = row
-        
         local tpB = Instance.new("TextButton")
         tpB.Size = UDim2.new(0,44,0,26); tpB.Position = UDim2.new(1,-96,0.5,-13)
         tpB.BackgroundColor3 = C.accent; tpB.TextColor3 = Color3.new(1,1,1)
@@ -235,7 +215,6 @@ local function refreshList()
             local tR = npc:FindFirstChild("HumanoidRootPart")
             if myR and tR then myR.CFrame = tR.CFrame + Vector3.new(0,3,3) end
         end)
-        
         local farmB = Instance.new("TextButton")
         farmB.Size = UDim2.new(0,44,0,26); farmB.Position = UDim2.new(1,-48,0.5,-13)
         farmB.BackgroundColor3 = C.err; farmB.TextColor3 = Color3.new(1,1,1)
@@ -249,15 +228,13 @@ local function refreshList()
     end
 end
 
--- Auto attack loop
+-- ═══════════ AUTO ATTACK (Xeno-safe) ═══════════
 local autoAtk = false
 RunService.Heartbeat:Connect(function()
     if not autoAtk then return end
-    
     local target = getgenv()._targetNPC
     local myChar = LP.Character
     local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    
     if not target or not target.Parent then
         if not myHRP then return end
         local nearest, nd = nil, 9999
@@ -273,7 +250,6 @@ RunService.Heartbeat:Connect(function()
         getgenv()._targetNPC = nearest
         target = nearest
     end
-    
     if target and target.Parent and myHRP then
         local hum = target:FindFirstChildOfClass("Humanoid")
         local tR = target:FindFirstChild("HumanoidRootPart")
@@ -287,7 +263,7 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Button handlers
+-- ═══════════ BUTTONS ═══════════
 refreshBtn.MouseButton1Click:Connect(refreshList)
 refreshBtn2.MouseButton1Click:Connect(refreshList)
 
@@ -313,10 +289,9 @@ filtBtn.MouseButton1Click:Connect(function()
     refreshList()
 end)
 
--- Auto scan on load
 task.spawn(function()
     task.wait(2)
     refreshList()
 end)
 
-print("[Blox NPC Scanner] ✅ Loaded! اضغط 🗺️")
+print("[Blox NPC Scanner] ✅ Loaded on Xeno!")
