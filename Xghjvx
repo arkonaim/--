@@ -1,0 +1,322 @@
+-- ═══════════════════════════════════════════════════════
+--   BLOX FRUITS - SMART NPC SCANNER v1.0
+--   Auto-detects ALL NPCs from Workspace (no hardcoded names)
+-- ═══════════════════════════════════════════════════════
+local Players = game:GetService("Players")
+local LP = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+
+local C = {
+    bg=Color3.fromRGB(18,20,28), bg2=Color3.fromRGB(28,32,44), bg3=Color3.fromRGB(40,46,60),
+    accent=Color3.fromRGB(140,110,240), accentG=Color3.fromRGB(180,160,255),
+    text=Color3.fromRGB(232,236,246), text2=Color3.fromRGB(150,160,180),
+    err=Color3.fromRGB(230,90,100), ok=Color3.fromRGB(100,220,140),
+    enemy=Color3.fromRGB(255,90,90), npc=Color3.fromRGB(90,180,255),
+}
+
+local function corner(p,r) local c=Instance.new("UICorner",p); c.CornerRadius=UDim.new(0,r or 8); return c end
+local function stroke(p,c,t,tr) local s=Instance.new("UIStroke",p); s.Color=c or C.accent; s.Thickness=t or 1; s.Transparency=tr or 0; return s end
+local function pad(p,a,l) local u=Instance.new("UIPadding",p); u.PaddingTop=UDim.new(0,a or 0); u.PaddingBottom=UDim.new(0,a or 0); u.PaddingLeft=UDim.new(0,l or 0); u.PaddingRight=UDim.new(0,l or 0); return u end
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "BloxNPC"; gui.ResetOnSpawn = false; gui.IgnoreGuiInset = true
+gui.Parent = LP:WaitForChild("PlayerGui")
+
+-- Toggle button
+local toggle = Instance.new("TextButton")
+toggle.Size = UDim2.new(0,50,0,50); toggle.Position = UDim2.new(0,20,0.5,-25)
+toggle.BackgroundColor3 = C.accent; toggle.Text = "🗺️"; toggle.TextSize = 24
+toggle.TextColor3 = Color3.new(1,1,1); toggle.Font = Enum.Font.GothamBold
+toggle.Parent = gui; corner(toggle,25); stroke(toggle, C.accentG, 1.5, 0.3)
+
+-- Main Window
+local win = Instance.new("Frame")
+win.Size = UDim2.new(0,360,0,480); win.Position = UDim2.new(0.5,-180,0.5,-240)
+win.BackgroundColor3 = C.bg; win.Visible = false; win.Parent = gui
+corner(win,14); stroke(win,C.accent,1.5,0.3)
+
+-- Header
+local hd = Instance.new("Frame")
+hd.Size = UDim2.new(1,0,0,42); hd.BackgroundColor3 = C.bg2; hd.Parent = win
+corner(hd,14)
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1,-100,1,0); title.Position = UDim2.new(0,14,0,0)
+title.BackgroundTransparency = 1; title.TextColor3 = C.accentG
+title.Font = Enum.Font.GothamBold; title.TextSize = 13
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Text = "🗺️ Smart NPC Scanner"; title.Parent = hd
+
+local refreshBtn = Instance.new("TextButton")
+refreshBtn.Size = UDim2.new(0,50,0,26); refreshBtn.Position = UDim2.new(1,-86,0.5,-13)
+refreshBtn.BackgroundColor3 = C.bg3; refreshBtn.TextColor3 = C.text
+refreshBtn.Text = "Scan"; refreshBtn.Font = Enum.Font.GothamBold
+refreshBtn.TextSize = 10; refreshBtn.Parent = hd; corner(refreshBtn,6)
+
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0,26,0,26); closeBtn.Position = UDim2.new(1,-32,0.5,-13)
+closeBtn.BackgroundColor3 = C.bg3; closeBtn.TextColor3 = C.text2
+closeBtn.Text = "X"; closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 11; closeBtn.Parent = hd; corner(closeBtn,6)
+
+-- Drag
+local drag,ds,sp = false,nil,nil
+hd.InputBegan:Connect(function(i)
+    if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+        drag=true; ds=i.Position; sp=win.Position
+    end
+end)
+hd.InputEnded:Connect(function(i)
+    if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+        drag=false
+    end
+end)
+UIS.InputChanged:Connect(function(i)
+    if drag and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then
+        local d = i.Position - ds
+        win.Position = UDim2.new(sp.X.Scale, sp.X.Offset + d.X, sp.Y.Scale, sp.Y.Offset + d.Y)
+    end
+end)
+
+toggle.MouseButton1Click:Connect(function() win.Visible = not win.Visible end)
+closeBtn.MouseButton1Click:Connect(function() win.Visible = false end)
+
+-- Status
+local status = Instance.new("TextLabel")
+status.Size = UDim2.new(1,-20,0,18); status.Position = UDim2.new(0,10,0,46)
+status.BackgroundTransparency = 1; status.TextColor3 = C.text2
+status.Font = Enum.Font.Gotham; status.TextSize = 10
+status.TextXAlignment = Enum.TextXAlignment.Left
+status.Text = "اضغط Scan للبحث..."; status.Parent = win
+
+-- Buttons row
+local buttonsRow = Instance.new("Frame")
+buttonsRow.Size = UDim2.new(1,-20,0,30); buttonsRow.Position = UDim2.new(0,10,0,68)
+buttonsRow.BackgroundTransparency = 1; buttonsRow.Parent = win
+local brl = Instance.new("UIListLayout", buttonsRow)
+brl.FillDirection = Enum.FillDirection.Horizontal; brl.Padding = UDim.new(0,4)
+
+local function smallBtn(txt, color)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(0.25,-3,1,0); b.BackgroundColor3 = color or C.bg3
+    b.TextColor3 = C.text; b.Font = Enum.Font.GothamBold
+    b.TextSize = 9; b.Text = txt; b.Parent = buttonsRow; corner(b,6)
+    return b
+end
+
+local espBtn = smallBtn("ESP: OFF", C.bg3)
+local autoBtn = smallBtn("Auto: OFF", C.bg3)
+local filtBtn = smallBtn("Enemies", C.enemy)
+local refreshBtn2 = smallBtn("🔄", C.accent)
+
+-- NPC list scroll
+local scroll = Instance.new("ScrollingFrame")
+scroll.Size = UDim2.new(1,-16,1,-120); scroll.Position = UDim2.new(0,8,0,104)
+scroll.BackgroundColor3 = C.bg2; scroll.BackgroundTransparency = 0.4
+scroll.ScrollBarThickness = 4; scroll.ScrollBarImageColor3 = C.accent
+scroll.CanvasSize = UDim2.new(0,0,0,0); scroll.Parent = win
+corner(scroll,10); pad(scroll,6,6)
+
+local sList = Instance.new("UIListLayout", scroll)
+sList.Padding = UDim.new(0,3)
+sList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    scroll.CanvasSize = UDim2.new(0,0,0,sList.AbsoluteContentSize.Y+10)
+end)
+
+-- ========= NPC DETECTION =========
+local function isNPC(obj)
+    if not obj:IsA("Model") then return false end
+    local hum = obj:FindFirstChildOfClass("Humanoid")
+    if not hum then return false end
+    if hum.Health <= 0 then return false end
+    if Players:GetPlayerFromCharacter(obj) then return false end
+    if not obj:FindFirstChild("HumanoidRootPart") then return false end
+    return true
+end
+
+local function isEnemy(obj)
+    local n = string.lower(obj.Name)
+    local pn = obj.Parent and string.lower(obj.Parent.Name) or ""
+    if pn:find("enem") or pn:find("mob") or pn:find("boss") or pn:find("pirate") then return true end
+    local keywords = {"bandit","pirate","marine","soldier","brigade","rebel","boss","captain",
+                     "thug","criminal","military","sword","jester","clown","monkey","fisherman",
+                     "raider","merc","elite","guard","brute","villain","demonic","sky","vice"}
+    for _, kw in ipairs(keywords) do
+        if n:find(kw) then return true end
+    end
+    return false
+end
+
+-- ESP highlights
+local highlights = {}
+local function toggleESP(on)
+    for _,hl in pairs(highlights) do hl:Destroy() end
+    highlights = {}
+    if on then
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if isNPC(obj) then
+                local hl = Instance.new("Highlight", obj)
+                hl.FillColor = isEnemy(obj) and C.enemy or C.npc
+                hl.FillTransparency = 0.5
+                hl.OutlineColor = Color3.new(1,1,1)
+                highlights[obj] = hl
+            end
+        end
+    end
+end
+
+-- Refresh list
+local filterEnemies = false
+local function refreshList()
+    for _,ch in ipairs(scroll:GetChildren()) do
+        if ch:IsA("TextButton") or ch:IsA("Frame") then ch:Destroy() end
+    end
+    
+    local npcs = {}
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if isNPC(obj) and (not filterEnemies or isEnemy(obj)) then
+            table.insert(npcs, obj)
+        end
+    end
+    
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    
+    table.sort(npcs, function(a, b)
+        if not myHRP then return false end
+        local aH = a:FindFirstChild("HumanoidRootPart")
+        local bH = b:FindFirstChild("HumanoidRootPart")
+        if not aH or not bH then return false end
+        return (aH.Position - myHRP.Position).Magnitude < (bH.Position - myHRP.Position).Magnitude
+    end)
+    
+    status.Text = ("✅ وجد %d NPC"):format(#npcs)
+    
+    for i, npc in ipairs(npcs) do
+        local hum = npc:FindFirstChildOfClass("Humanoid")
+        local hrp = npc:FindFirstChild("HumanoidRootPart")
+        local dist = (hrp and myHRP) and math.floor((hrp.Position - myHRP.Position).Magnitude) or 0
+        
+        local row = Instance.new("TextButton")
+        row.Size = UDim2.new(1,0,0,36)
+        row.BackgroundColor3 = C.bg3; row.BackgroundTransparency = 0.4
+        row.Text = ""; row.LayoutOrder = i; row.Parent = scroll
+        corner(row,6)
+        
+        local strip = Instance.new("Frame")
+        strip.Size = UDim2.new(0,3,1,-6); strip.Position = UDim2.new(0,3,0,3)
+        strip.BackgroundColor3 = isEnemy(npc) and C.enemy or C.npc
+        strip.Parent = row; corner(strip,2)
+        
+        local nameL = Instance.new("TextLabel")
+        nameL.Size = UDim2.new(1,-110,0,14); nameL.Position = UDim2.new(0,12,0,4)
+        nameL.BackgroundTransparency = 1; nameL.TextColor3 = C.text
+        nameL.Font = Enum.Font.GothamBold; nameL.TextSize = 10
+        nameL.TextXAlignment = Enum.TextXAlignment.Left
+        nameL.Text = npc.Name; nameL.Parent = row
+        
+        local infoL = Instance.new("TextLabel")
+        infoL.Size = UDim2.new(1,-110,0,12); infoL.Position = UDim2.new(0,12,0,18)
+        infoL.BackgroundTransparency = 1; infoL.TextColor3 = C.text2
+        infoL.Font = Enum.Font.Gotham; infoL.TextSize = 9
+        infoL.TextXAlignment = Enum.TextXAlignment.Left
+        infoL.Text = ("HP: %d | %dm"):format(math.floor(hum.Health), dist)
+        infoL.Parent = row
+        
+        local tpB = Instance.new("TextButton")
+        tpB.Size = UDim2.new(0,44,0,26); tpB.Position = UDim2.new(1,-96,0.5,-13)
+        tpB.BackgroundColor3 = C.accent; tpB.TextColor3 = Color3.new(1,1,1)
+        tpB.Text = "TP"; tpB.Font = Enum.Font.GothamBold
+        tpB.TextSize = 10; tpB.Parent = row; corner(tpB,5)
+        tpB.MouseButton1Click:Connect(function()
+            local chr = LP.Character
+            local myR = chr and chr:FindFirstChild("HumanoidRootPart")
+            local tR = npc:FindFirstChild("HumanoidRootPart")
+            if myR and tR then myR.CFrame = tR.CFrame + Vector3.new(0,3,3) end
+        end)
+        
+        local farmB = Instance.new("TextButton")
+        farmB.Size = UDim2.new(0,44,0,26); farmB.Position = UDim2.new(1,-48,0.5,-13)
+        farmB.BackgroundColor3 = C.err; farmB.TextColor3 = Color3.new(1,1,1)
+        farmB.Text = "Farm"; farmB.Font = Enum.Font.GothamBold
+        farmB.TextSize = 10; farmB.Parent = row; corner(farmB,5)
+        farmB.MouseButton1Click:Connect(function()
+            getgenv()._targetNPC = npc
+            getgenv()._autoFarm = true
+            autoBtn.Text = "Auto: ON"; autoBtn.BackgroundColor3 = C.ok
+        end)
+    end
+end
+
+-- Auto attack loop
+local autoAtk = false
+RunService.Heartbeat:Connect(function()
+    if not autoAtk then return end
+    
+    local target = getgenv()._targetNPC
+    local myChar = LP.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    
+    if not target or not target.Parent then
+        if not myHRP then return end
+        local nearest, nd = nil, 9999
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if isNPC(obj) and isEnemy(obj) then
+                local hrp = obj:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local d = (hrp.Position - myHRP.Position).Magnitude
+                    if d < nd then nearest, nd = obj, d end
+                end
+            end
+        end
+        getgenv()._targetNPC = nearest
+        target = nearest
+    end
+    
+    if target and target.Parent and myHRP then
+        local hum = target:FindFirstChildOfClass("Humanoid")
+        local tR = target:FindFirstChild("HumanoidRootPart")
+        if hum and hum.Health > 0 and tR then
+            myHRP.CFrame = CFrame.new(myHRP.Position, Vector3.new(tR.Position.X, myHRP.Position.Y, tR.Position.Z))
+            local tool = myChar:FindFirstChildOfClass("Tool")
+            if tool then pcall(function() tool:Activate() end) end
+        else
+            getgenv()._targetNPC = nil
+        end
+    end
+end)
+
+-- Button handlers
+refreshBtn.MouseButton1Click:Connect(refreshList)
+refreshBtn2.MouseButton1Click:Connect(refreshList)
+
+local espOn = false
+espBtn.MouseButton1Click:Connect(function()
+    espOn = not espOn
+    espBtn.Text = "ESP: " .. (espOn and "ON" or "OFF")
+    espBtn.BackgroundColor3 = espOn and C.ok or C.bg3
+    toggleESP(espOn)
+end)
+
+autoBtn.MouseButton1Click:Connect(function()
+    autoAtk = not autoAtk
+    autoBtn.Text = "Auto: " .. (autoAtk and "ON" or "OFF")
+    autoBtn.BackgroundColor3 = autoAtk and C.ok or C.bg3
+    if not autoAtk then getgenv()._targetNPC = nil end
+end)
+
+filtBtn.MouseButton1Click:Connect(function()
+    filterEnemies = not filterEnemies
+    filtBtn.Text = filterEnemies and "Enemies" or "All"
+    filtBtn.BackgroundColor3 = filterEnemies and C.enemy or C.bg3
+    refreshList()
+end)
+
+-- Auto scan on load
+task.spawn(function()
+    task.wait(2)
+    refreshList()
+end)
+
+print("[Blox NPC Scanner] ✅ Loaded! اضغط 🗺️")
